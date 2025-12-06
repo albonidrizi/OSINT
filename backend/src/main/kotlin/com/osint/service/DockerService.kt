@@ -2,7 +2,6 @@ package com.osint.service
 
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.async.ResultCallback
-import com.github.dockerjava.api.command.CreateContainerResponse
 import com.github.dockerjava.api.model.Frame
 import com.github.dockerjava.api.model.HostConfig
 import com.github.dockerjava.api.model.WaitResponse
@@ -20,35 +19,59 @@ import java.util.concurrent.TimeUnit
 class DockerService {
     
     private val dockerClient: DockerClient by lazy {
-        try {
-            val config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                .withDockerHost("unix:///var/run/docker.sock")
-                .build()
-            
-            DockerClientBuilder.getInstance(config)
-                .withDockerHttpClient(
-                    ZerodepDockerHttpClient.Builder()
-                        .dockerHost(URI.create("unix:///var/run/docker.sock"))
-                        .build()
-                )
-                .build()
-        } catch (e: Exception) {
-            // Fallback to default if zerodep fails
-            DockerClientBuilder.getInstance().build()
-        }
+        val config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+            .withDockerHost("unix:///var/run/docker.sock")
+            .build()
+        
+        val httpClient = ZerodepDockerHttpClient.Builder()
+            .dockerHost(URI.create("unix:///var/run/docker.sock"))
+            .build()
+        
+        DockerClientBuilder.getInstance(config)
+            .withDockerHttpClient(httpClient)
+            .build()
     }
     
     fun executeScan(domain: String, tool: ScanTool, limit: Int? = null, sources: String? = null): String {
         return when (tool) {
-        command.add("-b")
-        command.add(sources?.takeIf { it.isNotBlank() } ?: "all")
+            ScanTool.THEHARVESTER -> executeTheHarvester(domain, limit, sources)
+            ScanTool.AMASS -> executeAmass(domain)
+        }
+    }
+    
+    private fun executeTheHarvester(domain: String, limit: Int?, sources: String?): String {
+        val imageName = "ghcr.io/laramies/theharvester:latest"
+        
+        // Ensure image exists
+        try {
+            dockerClient.inspectImageCmd(imageName).exec()
+        } catch (e: com.github.dockerjava.api.exception.NotFoundException) {
+            println("Image $imageName not found locally. Pulling...")
+            try {
+                dockerClient.pullImageCmd(imageName).start().awaitCompletion(300, TimeUnit.SECONDS)
+                println("Image $imageName pulled successfully.")
+            } catch (pullEx: Exception) {
+                return "Error: Failed to pull image $imageName. ${pullEx.message}"
+            }
+        } catch (e: Exception) {
+            println("Error checking image: ${e.message}")
+        }
+        
+        // Build command
+        val command = mutableListOf(
+            "-d",
+            domain,
+            "-b",
+            sources?.takeIf { it.isNotBlank() } ?: "all"
+        )
         
         if (limit != null) {
             command.add("-l")
             command.add(limit.toString())
         }
         
-        return executeContainer(imageName, command)
+        // Override entrypoint to use theHarvester instead of restfulHarvest.py
+        return executeContainer(imageName, command, listOf("theHarvester"))
     }
     
     private fun executeAmass(domain: String): String {
@@ -61,47 +84,48 @@ class DockerService {
             // Image might already exist
         }
         
-        // Build command
+        // Build command - use passive mode for reliability
         val command = listOf(
             "enum",
+            "-passive",
             "-d",
-            domain,
-            "-json",
-            "/dev/stdout"
+            domain
         )
         
         return executeContainer(imageName, command)
     }
     
-    private fun executeContainer(imageName: String, command: List<String>): String {
+    private fun executeContainer(imageName: String, command: List<String>, entrypoint: List<String>? = null): String {
         val outputStream = ByteArrayOutputStream()
         var containerId: String? = null
         
         try {
             // Create container
-            val createContainerResponse: CreateContainerResponse = dockerClient.createContainerCmd(imageName)
+            var containerCmd = dockerClient.createContainerCmd(imageName)
                 .withCmd(*command.toTypedArray())
                 .withHostConfig(
                     HostConfig.newHostConfig()
-                        .withAutoRemove(false) // Don't auto-remove so we can get logs
+                        .withAutoRemove(false)
                 )
-                .exec()
             
+            if (entrypoint != null) {
+                containerCmd = containerCmd.withEntrypoint(*entrypoint.toTypedArray())
+            }
+            
+            val createContainerResponse = containerCmd.exec()
             containerId = createContainerResponse.id
             
             // Start container
             dockerClient.startContainerCmd(containerId).exec()
             
-            // Wait for container to finish (with timeout)
+            // Wait for container to finish
             val waitCallback = object : ResultCallback.Adapter<WaitResponse>() {
-                override fun onComplete() {
-                    // Container finished
-                }
+                override fun onComplete() { }
             }
             dockerClient.waitContainerCmd(containerId).exec(waitCallback)
             waitCallback.awaitCompletion(300, TimeUnit.SECONDS)
             
-            // Get logs after container finishes
+            // Get logs
             val callback = object : ResultCallback.Adapter<Frame>() {
                 override fun onNext(item: Frame) {
                     outputStream.write(item.payload)
@@ -118,13 +142,10 @@ class DockerService {
         } catch (e: Exception) {
             return "Error executing container: ${e.message}\n${e.stackTraceToString()}"
         } finally {
-            // Clean up container
             containerId?.let { id ->
                 try {
                     dockerClient.removeContainerCmd(id).exec()
-                } catch (e: Exception) {
-                    // Container might already be removed
-                }
+                } catch (e: Exception) { }
             }
         }
         
@@ -148,28 +169,18 @@ class DockerService {
         output.lines().forEach { line ->
             when {
                 line.contains("@") && line.matches(Regex(".*@.*\\..*")) -> {
-                    val email = line.trim().split(" ").firstOrNull { it.contains("@") }
-                    email?.let { emails.add(it) }
+                    line.trim().split(" ").firstOrNull { it.contains("@") }?.let { emails.add(it) }
                 }
-                line.contains("Hosts found:") || line.contains("IPs found:") -> {
-                    // Extract hosts/IPs from theHarvester output
-                }
-                line.contains("linkedin.com") -> {
-                    val linkedinUrl = line.trim()
-                    linkedin.add(linkedinUrl)
-                }
+                line.contains("linkedin.com") -> linkedin.add(line.trim())
                 line.matches(Regex(".*\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.*")) -> {
-                    val ip = line.trim().split(" ").firstOrNull { 
+                    line.trim().split(" ").firstOrNull { 
                         it.matches(Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))
-                    }
-                    ip?.let { ips.add(it) }
+                    }?.let { ips.add(it) }
                 }
                 line.contains(".") && !line.contains("@") && line.trim().length > 3 -> {
-                    // Potential hostname
-                    val host = line.trim().split(" ").firstOrNull { 
+                    line.trim().split(" ").firstOrNull { 
                         it.contains(".") && !it.contains("@")
-                    }
-                    host?.let { if (it.length > 3) hosts.add(it) }
+                    }?.let { if (it.length > 3) hosts.add(it) }
                 }
             }
         }
@@ -182,33 +193,20 @@ class DockerService {
         
         return results
     }
-    
+
     private fun parseAmassResults(output: String): Map<String, Any> {
         val results = mutableMapOf<String, Any>()
         val subdomains = mutableSetOf<String>()
         val ips = mutableSetOf<String>()
         
-        // Amass JSON output parsing
+        val domainRegex = Regex("([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}")
+        val ipRegex = Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")
+
         output.lines().forEach { line ->
-            if (line.trim().startsWith("{") && line.contains("\"name\"")) {
-                try {
-                    // Simple JSON parsing for subdomains
-                    val nameMatch = Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").find(line)
-                    nameMatch?.let {
-                        val subdomain = it.groupValues[1]
-                        subdomains.add(subdomain)
-                    }
-                    
-                    val ipMatch = Regex("\"addr\"\\s*:\\s*\"([^\"]+)\"").find(line)
-                    ipMatch?.let {
-                        val ip = it.groupValues[1]
-                        if (ip.matches(Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))) {
-                            ips.add(ip)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Skip malformed JSON lines
-                }
+            val trimmed = line.trim()
+            if (trimmed.isNotBlank() && !trimmed.startsWith("[") && !trimmed.contains("Amass")) {
+                domainRegex.findAll(trimmed).forEach { subdomains.add(it.value) }
+                ipRegex.findAll(trimmed).forEach { ips.add(it.value) }
             }
         }
         
@@ -219,4 +217,3 @@ class DockerService {
         return results
     }
 }
-

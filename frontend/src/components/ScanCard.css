@@ -147,8 +147,6 @@
   position: relative;
   z-index: 20;
   pointer-events: auto;
-  text-decoration: none;
-  text-align: center;
 }
 
 .view-details-button {

@@ -22,7 +22,7 @@ export const ScanDetail: React.FC = () => {
       }
 
       try {
-        setLoading(true);
+        if (!scan) setLoading(true); // Only show loading on first fetch
         const data = await scanApi.getScanById(parseInt(id));
         setScan(data);
         setError(null);
@@ -34,9 +34,17 @@ export const ScanDetail: React.FC = () => {
     };
 
     fetchScan();
-    const interval = setInterval(fetchScan, 5000); // Poll for updates
-    return () => clearInterval(interval);
-  }, [id]);
+
+    // Only poll if scan is still running
+    let interval: NodeJS.Timeout | null = null;
+    if (!scan || scan.status === 'RUNNING') {
+      interval = setInterval(fetchScan, 5000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [id, scan?.status]);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return 'N/A';

@@ -21,9 +21,19 @@ export const useScans = () => {
 
   useEffect(() => {
     fetchScans();
-    const interval = setInterval(fetchScans, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
-  }, [fetchScans]);
+
+    // Only poll if there are running scans
+    let interval: NodeJS.Timeout | null = null;
+    const hasRunningScans = scans.some(scan => scan.status === 'RUNNING');
+
+    if (hasRunningScans || scans.length === 0) {
+      interval = setInterval(fetchScans, 5000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [fetchScans, scans.length > 0 && scans.some(s => s.status === 'RUNNING')]);
 
   const initiateScan = async (domain: string, tool: 'THEHARVESTER' | 'AMASS', limit?: number, sources?: string) => {
     try {

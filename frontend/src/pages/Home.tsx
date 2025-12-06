@@ -5,7 +5,7 @@ import { useScans } from '../hooks/useScans';
 import { ScanForm } from '../components/ScanForm';
 import { ScanGrid } from '../components/ScanGrid';
 import { ScanModal } from '../components/ScanModal';
-import { ScanResponse } from '../services/api';
+import { ScanResponse, scanApi } from '../services/api';
 import './Home.css';
 
 export const Home: React.FC = () => {
@@ -19,6 +19,18 @@ export const Home: React.FC = () => {
       autoClose: 3000,
     });
     refreshScans();
+  };
+
+  const handleClearHistory = async () => {
+    if (window.confirm('Are you sure you want to delete all scan history? This action cannot be undone.')) {
+      try {
+        await scanApi.clearHistory();
+        toast.info('History cleared successfully');
+        refreshScans();
+      } catch (error) {
+        toast.error('Failed to clear history');
+      }
+    }
   };
 
   const handleViewResults = (scan: ScanResponse) => {
@@ -43,6 +55,12 @@ export const Home: React.FC = () => {
             Discover subdomains, emails, IPs, and more using theHarvester and Amass
           </p>
         </header>
+
+        <div className="actions-bar">
+          <button onClick={handleClearHistory} className="clear-history-button" disabled={scans.length === 0}>
+            🗑️ Clear History
+          </button>
+        </div>
 
         <ScanForm onScanInitiated={handleScanInitiated} />
 

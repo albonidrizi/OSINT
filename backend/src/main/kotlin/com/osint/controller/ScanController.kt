@@ -40,5 +40,11 @@ class ScanController(
             ResponseEntity.notFound().build()
         }
     }
+
+    @DeleteMapping
+    fun deleteAllScans(): ResponseEntity<Unit> {
+        scanService.deleteAllScans()
+        return ResponseEntity.noContent().build()
+    }
 }
 

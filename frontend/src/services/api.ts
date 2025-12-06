@@ -42,5 +42,9 @@ export const scanApi = {
     const response = await api.get<ScanResponse>(`/scans/${id}`);
     return response.data;
   },
+
+  clearHistory: async (): Promise<void> => {
+    await api.delete('/scans');
+  },
 };
 

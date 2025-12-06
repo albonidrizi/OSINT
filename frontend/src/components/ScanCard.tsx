@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ScanResponse } from '../services/api';
 import './ScanCard.css';
 
@@ -10,7 +10,7 @@ interface ScanCardProps {
 }
 
 export const ScanCard: React.FC<ScanCardProps> = ({ scan, onViewResults }) => {
-
+  const navigate = useNavigate();
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return 'N/A';
@@ -94,13 +94,15 @@ export const ScanCard: React.FC<ScanCardProps> = ({ scan, onViewResults }) => {
       </div>
 
       <div className="card-footer">
-        <Link
-          to={`/scan/${scan.id}`}
-          onClick={(e) => e.stopPropagation()}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/scan/${scan.id}`);
+          }}
           className="view-details-button"
         >
           View Details
-        </Link>
+        </button>
         {hasResults && (
           <button
             onClick={(e) => {

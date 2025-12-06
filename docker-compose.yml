@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: osint-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - osint-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: osint-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - osint-network
+    restart: unless-stopped
+
+networks:
+  osint-network:
+    driver: bridge
+
+volumes:
+  osint-data:
+    driver: local
+

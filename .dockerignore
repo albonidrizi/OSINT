@@ -1,0 +1,10 @@
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea
+node_modules
+backend/data/*.db
+backend/data/*.db-journal
+

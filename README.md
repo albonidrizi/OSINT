@@ -230,6 +230,40 @@ OSINT/
 - Drag-and-drop order is persisted in browser localStorage
 - Docker containers for OSINT tools are automatically pulled if not present
 
+## Testing
+
+This project includes a comprehensive testing suite for both backend and frontend.
+
+### Backend Tests
+
+The backend uses JUnit 5, MockK, and Spring Boot Test.
+
+```bash
+cd backend
+# Run all tests
+./gradlew test
+
+# Run tests and generate coverage report
+./gradlew jacocoTestReport
+```
+
+Reports are generated at `backend/build/reports/tests/test/index.html`.
+
+### Frontend Tests
+
+The frontend uses Jest and React Testing Library.
+
+```bash
+cd frontend
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+Coverage reports are generated at `frontend/coverage/lcov-report/index.html`.
+
 ## License
 
 This project is provided as-is for evaluation purposes.

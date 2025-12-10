@@ -29,6 +29,8 @@ A full-stack web application for performing OSINT (Open Source Intelligence) sca
 
 ### Using Docker Compose (Recommended)
 
+![Project Demo](https://img.youtube.com/vi/RyXWD9HhyBc/0.jpg)
+[Watch the video demo](https://www.youtube.com/watch?v=RyXWD9HhyBc)
 1. Clone the repository:
 ```bash
 git clone https://github.com/albonidrizi/OSINT.git

@@ -13,7 +13,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScanResponse } from '../services/api';
@@ -97,7 +97,7 @@ export const ScanGrid: React.FC<ScanGridProps> = ({ scans, onViewResults }) => {
     >
       <SortableContext
         items={orderedScans.map((scan) => scan.id)}
-        strategy={verticalListSortingStrategy}
+        strategy={rectSortingStrategy}
       >
         <div className="scan-grid">
           {orderedScans.map((scan) => (
@@ -112,4 +112,3 @@ export const ScanGrid: React.FC<ScanGridProps> = ({ scans, onViewResults }) => {
     </DndContext>
   );
 };
-

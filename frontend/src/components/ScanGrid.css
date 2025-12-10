@@ -1,34 +1,42 @@
 .scan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1.5rem;
-  padding: 1rem 0;
+  padding: 1.5rem 0;
 }
 
-.scan-grid > div {
+.scan-grid>div {
   position: relative;
+  height: 100%;
 }
 
 .drag-handle {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  width: 24px;
-  height: 24px;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 4px;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
-.scan-grid > div:hover .drag-handle {
+.scan-grid>div:hover .drag-handle {
   opacity: 1;
+}
+
+.drag-handle:hover {
+  background: var(--bg-card);
+  border-color: var(--primary);
 }
 
 .drag-handle:active {
@@ -36,39 +44,54 @@
 }
 
 .drag-icon {
-  color: #999;
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font-size: 14px;
   line-height: 1;
   user-select: none;
 }
 
+.drag-handle:hover .drag-icon {
+  color: var(--primary);
+}
+
 .empty-state {
   text-align: center;
-  padding: 4rem 2rem;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 6rem 2rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-icon {
   font-size: 4rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.2));
+  animation: float 6s ease-in-out infinite;
 }
 
 .empty-state h2 {
-  color: #333;
-  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  opacity: 0.9;
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1.1rem;
+  max-width: 400px;
+  line-height: 1.6;
 }
 
 @media (max-width: 768px) {
   .scan-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 1.25rem;
   }
 }
 
@@ -77,4 +100,3 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
-

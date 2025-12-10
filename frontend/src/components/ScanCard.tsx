@@ -21,13 +21,13 @@ export const ScanCard: React.FC<ScanCardProps> = ({ scan, onViewResults }) => {
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'COMPLETED':
-        return '#27ae60';
+        return '#10b981'; // Emerald 500
       case 'FAILED':
-        return '#e74c3c';
+        return '#ef4444'; // Red 500
       case 'RUNNING':
-        return '#f39c12';
+        return '#f59e0b'; // Amber 500
       default:
-        return '#95a5a6';
+        return '#64748b'; // Slate 500
     }
   };
 

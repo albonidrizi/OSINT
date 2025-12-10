@@ -35,7 +35,12 @@ dependencies {
     implementation("org.glassfish.jaxb:jaxb-core:2.3.0.1")
     // JAX-RS API for docker-java (implementation provided by docker-java)
     implementation("javax.ws.rs:javax.ws.rs-api:2.1.1")
+    
+    // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("com.ninja-squad:springmockk:4.0.2")
+    testImplementation("io.mockk:mockk:1.13.8")
+    testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.withType<KotlinCompile> {

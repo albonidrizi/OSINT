@@ -63,9 +63,12 @@ class DockerServiceTest {
 
         assertEquals(3, hosts.size)
         assertEquals("sub1.example.com:1.2.3.4", hosts[0])
+        assertEquals("sub2.example.com", hosts[1])
+        assertEquals("sub3.example.com:5.6.7.8", hosts[2])
 
-        assertEquals(1, ips.size)
+        assertEquals(2, ips.size) // 1.2.3.4 and 5.6.7.8 are both in the output as part of hosts and discovery
         assertEquals("1.2.3.4", ips[0])
+        assertEquals("5.6.7.8", ips[1])
     }
 
     @Test
@@ -83,8 +86,25 @@ class DockerServiceTest {
 
         // Then
         val subdomains = result["subdomains"] as List<*>
-        assertEquals(4, subdomains.size)
-        assertEquals("sub1.example.com 1.2.3.4", subdomains[0])
-        assertEquals("sub4.example.com", subdomains[3])
+        val ips = result["ips"] as List<*>
+
+        assertEquals(6, subdomains.size)
+        // Set contains:
+        // sub1.example.com (naked)
+        // sub1.example.com 1.2.3.4 (discovery)
+        // sub2.example.com (naked and discovery match)
+        // sub3.example.com (naked)
+        // sub3.example.com 5.6.7.8 (discovery)
+        // sub4.example.com (naked and discovery match)
+        assertEquals("sub1.example.com", subdomains[0])
+        assertEquals("sub1.example.com 1.2.3.4", subdomains[1])
+        assertEquals("sub2.example.com", subdomains[2])
+        assertEquals("sub3.example.com", subdomains[3])
+        assertEquals("sub3.example.com 5.6.7.8", subdomains[4])
+        assertEquals("sub4.example.com", subdomains[5])
+        
+        assertEquals(2, ips.size)
+        assertEquals("1.2.3.4", ips[0])
+        assertEquals("5.6.7.8", ips[1])
     }
 }

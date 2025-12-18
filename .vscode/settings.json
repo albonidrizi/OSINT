@@ -5,6 +5,6 @@
     "java.project.resourceFilters": [
         "node_modules",
         ".git"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "automatic"
 }
-

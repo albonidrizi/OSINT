@@ -42,10 +42,21 @@ describe('ScanGrid', () => {
     it('renders empty state when no scans', () => {
         renderWithRouter(<ScanGrid scans={[]} onViewResults={jest.fn()} />);
 
-        // Assuming there's some empty state message or just empty container
-        // If your component doesn't have an explicit empty message, this test might need adjustment
-        // But testing that it doesn't crash is good.
-        const cards = screen.queryAllByRole('article'); // Assuming cards use article or generic div
-        expect(cards.length).toBe(0);
+        expect(screen.getByText('No scans yet')).toBeInTheDocument();
+        expect(screen.getByText('Initiate your first scan to get started!')).toBeInTheDocument();
+    });
+
+    it('renders scans with different statuses correctly', () => {
+        const variedScans: ScanResponse[] = [
+            { ...mockScans[0], status: 'RUNNING' },
+            { ...mockScans[1], status: 'COMPLETED' },
+            { ...mockScans[1], id: 3, domain: 'fail.com', status: 'FAILED', errorMessage: 'Fatal Error' }
+        ];
+
+        renderWithRouter(<ScanGrid scans={variedScans} onViewResults={jest.fn()} />);
+
+        expect(screen.getByText('Scan in progress...')).toBeInTheDocument();
+        expect(screen.getByText('test.com')).toBeInTheDocument();
+        expect(screen.getByText('Fatal Error')).toBeInTheDocument();
     });
 });

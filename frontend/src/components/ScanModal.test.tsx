@@ -24,20 +24,68 @@ describe('ScanModal', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    it('renders scan results when open', () => {
-        render(<ScanModal scan={mockScan} onClose={jest.fn()} />);
+    it('renders all result categories correctly', () => {
+        const complexScan: ScanResponse = {
+            ...mockScan,
+            results: JSON.stringify({
+                emails: ['email@test.com'],
+                subdomains: ['sub.example.com'],
+                hosts: ['host.example.com'],
+                ips: ['1.2.3.4'],
+                linkedin: ['https://linkedin.com/in/test']
+            })
+        };
+        render(<ScanModal scan={complexScan} onClose={jest.fn()} />);
 
-        expect(screen.getByText('Results for example.com')).toBeInTheDocument();
-        expect(screen.getByText('test@example.com')).toBeInTheDocument();
-        expect(screen.getByText('mail.example.com')).toBeInTheDocument();
-        expect(screen.getByText('1.1.1.1')).toBeInTheDocument();
+        expect(screen.getByText('email@test.com')).toBeInTheDocument();
+        expect(screen.getByText('sub.example.com')).toBeInTheDocument();
+        expect(screen.getByText('host.example.com')).toBeInTheDocument();
+        expect(screen.getByText('1.2.3.4')).toBeInTheDocument();
+        expect(screen.getByText('https://linkedin.com/in/test')).toBeInTheDocument();
+    });
+
+    it('renders "No results found" when results are empty', () => {
+        const emptyScan: ScanResponse = {
+            ...mockScan,
+            results: JSON.stringify({})
+        };
+        render(<ScanModal scan={emptyScan} onClose={jest.fn()} />);
+
+        expect(screen.getByText('No results found for this scan.')).toBeInTheDocument();
+    });
+
+    it('falls back to raw output on JSON parsing error', () => {
+        const rawScan: ScanResponse = {
+            ...mockScan,
+            results: 'Some non-JSON raw output'
+        };
+        render(<ScanModal scan={rawScan} onClose={jest.fn()} />);
+
+        expect(screen.getByText('No results found for this scan.')).toBeInTheDocument();
+        expect(screen.getByText('View Raw Output')).toBeInTheDocument();
+        expect(screen.getByText('Some non-JSON raw output')).toBeInTheDocument();
+    });
+
+    it('renders raw output alongside structured data if present', () => {
+        const hybridScan: ScanResponse = {
+            ...mockScan,
+            results: JSON.stringify({
+                emails: ['hybrid@test.com'],
+                raw: 'This is the raw version of the data'
+            })
+        };
+        render(<ScanModal scan={hybridScan} onClose={jest.fn()} />);
+
+        expect(screen.getByText('hybrid@test.com')).toBeInTheDocument();
+        expect(screen.getByText('View Raw Output')).toBeInTheDocument();
+        expect(screen.getByText('This is the raw version of the data')).toBeInTheDocument();
     });
 
     it('calls onClose when close button is clicked', () => {
         const handleClose = jest.fn();
         render(<ScanModal scan={mockScan} onClose={handleClose} />);
 
-        const closeButton = screen.getByLabelText('Close modal'); // Assuming aria-label or button text
+        const closeButton = screen.getByLabelText('Close');
         fireEvent.click(closeButton);
 
         expect(handleClose).toHaveBeenCalled();

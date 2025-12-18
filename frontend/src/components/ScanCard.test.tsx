@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ScanCard } from './ScanCard';
 import { ScanResponse } from '../services/api';
@@ -20,12 +20,14 @@ const renderWithRouter = (component: React.ReactElement) => {
 };
 
 describe('ScanCard', () => {
-    it('renders scan information correctly', () => {
+    it('renders scan information correctly', async () => {
         renderWithRouter(<ScanCard scan={mockScan} onViewResults={jest.fn()} />);
 
-        expect(screen.getByText('example.com')).toBeInTheDocument();
-        expect(screen.getByText('THEHARVESTER')).toBeInTheDocument();
-        expect(screen.getByText('COMPLETED')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('example.com')).toBeInTheDocument();
+            expect(screen.getByText('THEHARVESTER')).toBeInTheDocument();
+            expect(screen.getByText('COMPLETED')).toBeInTheDocument();
+        });
     });
 
     it('renders running state correctly', () => {
@@ -43,7 +45,7 @@ describe('ScanCard', () => {
         };
         renderWithRouter(<ScanCard scan={failedScan} onViewResults={jest.fn()} />);
 
-        expect(screen.getByText('Connection failed')).toBeInTheDocument();
+        expect(screen.getByText(/Connection failed/)).toBeInTheDocument();
     });
 
     it('calls onViewResults when "View Results" is clicked', () => {

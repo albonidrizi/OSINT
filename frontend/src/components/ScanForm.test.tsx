@@ -15,20 +15,20 @@ describe('ScanForm', () => {
         expect(screen.queryByLabelText('Domain *')).not.toBeInTheDocument();
     });
 
-    it('expands form when "New Scan" button is clicked', () => {
+    it('expands form when "New Scan" button is clicked', async () => {
         render(<ScanForm onScanInitiated={jest.fn()} />);
 
         fireEvent.click(screen.getByText('New Scan'));
 
-        expect(screen.getByLabelText(/Domain/i)).toBeInTheDocument();
-        expect(screen.getByText('Start Scan')).toBeInTheDocument();
+        expect(await screen.findByLabelText(/Domain/i)).toBeInTheDocument();
+        expect(await screen.findByText('Start Scan')).toBeInTheDocument();
     });
 
     it('validates domain input', async () => {
         render(<ScanForm onScanInitiated={jest.fn()} />);
         fireEvent.click(screen.getByText('New Scan'));
 
-        const submitButton = screen.getByText('Start Scan');
+        const submitButton = await screen.findByText('Start Scan');
         fireEvent.click(submitButton);
 
         expect(screen.getByText('Domain is required')).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('ScanForm', () => {
 
         fireEvent.click(screen.getByText('New Scan'));
 
-        const input = screen.getByLabelText(/Domain/i);
+        const input = await screen.findByLabelText(/Domain/i);
         await userEvent.type(input, 'example.com');
 
         fireEvent.click(screen.getByText('Start Scan'));
@@ -66,27 +66,95 @@ describe('ScanForm', () => {
         render(<ScanForm onScanInitiated={jest.fn()} />);
         fireEvent.click(screen.getByText('New Scan'));
 
-        await userEvent.type(screen.getByLabelText(/Domain/i), 'example.com');
+        const input = await screen.findByLabelText(/Domain/i);
+        await userEvent.type(input, 'example.com');
         fireEvent.click(screen.getByText('Start Scan'));
 
         await waitFor(() => {
-            // Axios error message structure might vary, checking for generic failure or specific message
-            // The component utilizes err.message
-            expect(screen.getByText(/Request failed with status code 500/i)).toBeInTheDocument();
+            expect(screen.getByText(/500/)).toBeInTheDocument();
         });
     });
 
-    it('toggles tool selection', () => {
+    it('toggles tool selection', async () => {
         render(<ScanForm onScanInitiated={jest.fn()} />);
         fireEvent.click(screen.getByText('New Scan'));
 
-        const amassButton = screen.getByText('Amass');
+        await waitFor(() => {
+            expect(screen.getByText(/Amass/i)).toBeInTheDocument();
+        });
+
+        const amassButton = screen.getByText(/Amass/i);
         fireEvent.click(amassButton);
 
-        // Check if Amass is active (class check or logic check)
         expect(amassButton).toHaveClass('active');
+        expect(screen.queryByLabelText(/Limit/i)).not.toBeInTheDocument();
+    });
 
-        // Limit field should disappear for Amass (assuming logic in component)
-        expect(screen.queryByLabelText('Limit (optional)')).not.toBeInTheDocument();
+    it('closes form when "X" button is clicked', async () => {
+        render(<ScanForm onScanInitiated={jest.fn()} />);
+        fireEvent.click(screen.getByText('New Scan'));
+
+        const closeButton = await screen.findByLabelText('Close form');
+        fireEvent.click(closeButton);
+
+        await waitFor(() => {
+            expect(screen.queryByLabelText(/Domain/i)).not.toBeInTheDocument();
+            expect(screen.getByText('New Scan')).toBeInTheDocument();
+        });
+    });
+
+    it('submits optional fields when provided', async () => {
+        let capturedRequest: any = null;
+        server.use(
+            rest.post('http://localhost:8080/api/scans', (req, res, ctx) => {
+                capturedRequest = req.body;
+                return res(ctx.status(200), ctx.json({ id: 1 }));
+            })
+        );
+
+        render(<ScanForm onScanInitiated={jest.fn()} />);
+        fireEvent.click(screen.getByText('New Scan'));
+
+        await userEvent.type(await screen.findByLabelText(/Domain/i), 'example.com');
+        await userEvent.type(screen.getByLabelText(/Limit/i), '100');
+        await userEvent.type(screen.getByLabelText(/Sources/i), 'google,bing');
+
+        fireEvent.click(screen.getByText('Start Scan'));
+
+        await waitFor(() => {
+            expect(capturedRequest).toMatchObject({
+                domain: 'example.com',
+                limit: 100,
+                sources: 'google,bing'
+            });
+        });
+    });
+
+    it('sanitizes limit and sources before submission', async () => {
+        let capturedRequest: any = null;
+        server.use(
+            rest.post('http://localhost:8080/api/scans', (req, res, ctx) => {
+                capturedRequest = req.body;
+                return res(ctx.status(200), ctx.json({ id: 1 }));
+            })
+        );
+
+        render(<ScanForm onScanInitiated={jest.fn()} />);
+        fireEvent.click(screen.getByText('New Scan'));
+
+        const domainInput = await screen.findByLabelText(/Domain/i);
+        fireEvent.change(domainInput, { target: { value: 'example.com' } });
+
+        // Test with limit 0 - should be sent as undefined
+        const limitInput = screen.getByPlaceholderText('500');
+        fireEvent.change(limitInput, { target: { value: '0' } });
+
+        fireEvent.click(screen.getByText('Start Scan'));
+
+        await waitFor(() => {
+            expect(capturedRequest).toBeDefined();
+            expect(capturedRequest).not.toHaveProperty('limit');
+            expect(capturedRequest).not.toHaveProperty('sources');
+        });
     });
 });

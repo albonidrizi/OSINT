@@ -40,7 +40,7 @@ export const ScanForm: React.FC<ScanFormProps> = ({ onScanInitiated }) => {
       const request: ScanRequest = {
         domain: domain.trim(),
         tool,
-        limit: limit && limit > 0 ? limit : undefined,
+        limit: (limit !== undefined && limit > 0) ? limit : undefined,
         sources: sources.trim() || undefined,
       };
 
@@ -86,7 +86,7 @@ export const ScanForm: React.FC<ScanFormProps> = ({ onScanInitiated }) => {
             exit={{ opacity: 0, height: 0 }}
             className="scan-form-container"
           >
-            <form onSubmit={handleSubmit} className="scan-form">
+            <form onSubmit={handleSubmit} className="scan-form" aria-label="Scan Form">
               <div className="form-header">
                 <h2>Initiate New Scan</h2>
                 <button

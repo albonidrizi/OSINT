@@ -42,6 +42,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({ scan, onClose }) => {
         exit={{ opacity: 0 }}
         className="modal-overlay"
         onClick={onClose}
+        role="dialog"
+        aria-modal="true"
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}

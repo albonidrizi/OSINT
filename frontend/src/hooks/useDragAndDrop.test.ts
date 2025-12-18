@@ -26,14 +26,14 @@ describe('useDragAndDrop', () => {
         expect(result.current.orderedScans).toEqual(items);
     });
 
-    it('updates items order', () => {
+    it('updates items order', async () => {
         const items = [createMockScan(1), createMockScan(2), createMockScan(3)];
         const { result } = renderHook(() => useDragAndDrop(items));
 
         // Simulate new order: 2, 3, 1
         const newOrder = [2, 3, 1];
 
-        act(() => {
+        await act(async () => {
             result.current.updateOrder(newOrder);
         });
 
@@ -41,17 +41,37 @@ describe('useDragAndDrop', () => {
         expect(ids).toEqual([2, 3, 1]);
     });
 
-    it('persists order to localStorage', () => {
+    it('persists order to localStorage', async () => {
         const items = [createMockScan(1), createMockScan(2)];
         const { result } = renderHook(() => useDragAndDrop(items));
 
         const newOrder = [2, 1];
 
-        act(() => {
+        await act(async () => {
             result.current.updateOrder(newOrder);
         });
 
         const saved = JSON.parse(localStorage.getItem('osint_scan_order') || '[]');
         expect(saved).toEqual(newOrder);
+    });
+
+    it('handles corrupted localStorage data', () => {
+        localStorage.setItem('osint_scan_order', 'invalid-json');
+        const items = [createMockScan(1), createMockScan(2)];
+
+        // Should not throw and fallback to default order
+        const { result } = renderHook(() => useDragAndDrop(items));
+        expect(result.current.orderedScans).toEqual(items);
+    });
+
+    it('appends new scans not in saved order', () => {
+        localStorage.setItem('osint_scan_order', JSON.stringify([2, 1]));
+        const items = [createMockScan(1), createMockScan(2), createMockScan(3)];
+
+        const { result } = renderHook(() => useDragAndDrop(items));
+        const ids = result.current.orderedScans.map(s => s.id);
+
+        // 2 and 1 in order, 3 is new and should be appended
+        expect(ids).toEqual([2, 1, 3]);
     });
 });

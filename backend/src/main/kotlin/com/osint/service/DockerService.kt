@@ -16,21 +16,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 @Service
-class DockerService {
-    
-    private val dockerClient: DockerClient by lazy {
-        val config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-            .withDockerHost("unix:///var/run/docker.sock")
-            .build()
-        
-        val httpClient = ZerodepDockerHttpClient.Builder()
-            .dockerHost(URI.create("unix:///var/run/docker.sock"))
-            .build()
-        
-        DockerClientBuilder.getInstance(config)
-            .withDockerHttpClient(httpClient)
-            .build()
-    }
+class DockerService(private val dockerClient: DockerClient) {
     
     fun executeScan(domain: String, tool: ScanTool, limit: Int? = null, sources: String? = null): String {
         return when (tool) {
@@ -161,34 +147,70 @@ class DockerService {
     
     private fun parseTheHarvesterResults(output: String): Map<String, Any> {
         val results = mutableMapOf<String, Any>()
-        val emails = mutableSetOf<String>()
-        val hosts = mutableSetOf<String>()
-        val ips = mutableSetOf<String>()
-        val linkedin = mutableSetOf<String>()
+        val emailsSet = mutableSetOf<String>()
+        val hostsSet = mutableSetOf<String>()
+        val ipsSet = mutableSetOf<String>()
+        val linkedinSet = mutableSetOf<String>()
         
+        val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+        val ipRegex = Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")
+        val hostRegex = Regex("([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}")
+
+        var targetDomain = ""
+
         output.lines().forEach { line ->
-            when {
-                line.contains("@") && line.matches(Regex(".*@.*\\..*")) -> {
-                    line.trim().split(" ").firstOrNull { it.contains("@") }?.let { emails.add(it) }
+            val trimmed = line.trim()
+            if (trimmed.isBlank() || trimmed.startsWith("*") || trimmed.startsWith("-")) return@forEach
+
+            if (trimmed.contains("Target:", ignoreCase = true)) {
+                targetDomain = trimmed.substringAfter(":").trim()
+                return@forEach
+            }
+
+            emailRegex.findAll(trimmed).forEach { match ->
+                val email = match.value
+                if (!email.contains("edge-security.com", ignoreCase = true) && 
+                    !email.startsWith(targetDomain, ignoreCase = true)) {
+                    emailsSet.add(email)
                 }
-                line.contains("linkedin.com") -> linkedin.add(line.trim())
-                line.matches(Regex(".*\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.*")) -> {
-                    line.trim().split(" ").firstOrNull { 
-                        it.matches(Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))
-                    }?.let { ips.add(it) }
+            }
+
+            if (trimmed.contains("linkedin.com", ignoreCase = true)) {
+                linkedinSet.add(trimmed)
+            }
+
+            ipRegex.findAll(trimmed).forEach { match ->
+                ipsSet.add(match.value)
+            }
+
+            hostRegex.findAll(trimmed).forEach { match ->
+                val hostName = match.value
+                if (hostName.equals(targetDomain, ignoreCase = true) || 
+                    hostName.contains("edge-security.com", ignoreCase = true) ||
+                    hostName.contains("google.com", ignoreCase = true) || 
+                    hostName.equals("theHarvester", ignoreCase = true)) {
+                    return@forEach
                 }
-                line.contains(".") && !line.contains("@") && line.trim().length > 3 -> {
-                    line.trim().split(" ").firstOrNull { 
-                        it.contains(".") && !it.contains("@")
-                    }?.let { if (it.length > 3) hosts.add(it) }
+
+                if (trimmed.contains("$hostName:")) {
+                    val afterHost = trimmed.substringAfter("$hostName:")
+                    val ipPart = afterHost.split(Regex("\\s+")).firstOrNull()
+                    if (ipPart != null && ipRegex.matches(ipPart)) {
+                        hostsSet.add("$hostName:$ipPart")
+                        ipsSet.add(ipPart)
+                    } else {
+                        hostsSet.add(hostName)
+                    }
+                } else if (!trimmed.contains("@")) {
+                    hostsSet.add(hostName)
                 }
             }
         }
         
-        results["emails"] = emails.toList()
-        results["hosts"] = hosts.toList()
-        results["ips"] = ips.toList()
-        results["linkedin"] = linkedin.toList()
+        results["emails"] = emailsSet.toList().sorted()
+        results["hosts"] = hostsSet.toList().sorted()
+        results["ips"] = ipsSet.toList().sorted()
+        results["linkedin"] = linkedinSet.toList().sorted()
         results["raw"] = output
         
         return results
@@ -197,21 +219,33 @@ class DockerService {
     private fun parseAmassResults(output: String): Map<String, Any> {
         val results = mutableMapOf<String, Any>()
         val subdomains = mutableSetOf<String>()
-        val ips = mutableSetOf<String>()
+        val ipsFound = mutableSetOf<String>()
         
         val domainRegex = Regex("([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}")
         val ipRegex = Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")
 
         output.lines().forEach { line ->
             val trimmed = line.trim()
-            if (trimmed.isNotBlank() && !trimmed.startsWith("[") && !trimmed.contains("Amass")) {
-                domainRegex.findAll(trimmed).forEach { subdomains.add(it.value) }
-                ipRegex.findAll(trimmed).forEach { ips.add(it.value) }
+            if (trimmed.isBlank() || trimmed.contains("Amass", ignoreCase = true)) return@forEach
+
+            if (trimmed.startsWith("[")) {
+                val discoveryPart = trimmed.substringAfter("]").trim()
+                if (discoveryPart.isNotBlank()) {
+                    subdomains.add(discoveryPart)
+                }
+            }
+            
+            domainRegex.findAll(trimmed).forEach { match ->
+                subdomains.add(match.value)
+            }
+            
+            ipRegex.findAll(trimmed).forEach { match ->
+                ipsFound.add(match.value)
             }
         }
         
-        results["subdomains"] = subdomains.toList()
-        results["ips"] = ips.toList()
+        results["subdomains"] = subdomains.toList().sorted()
+        results["ips"] = ipsFound.toList().sorted()
         results["raw"] = output
         
         return results

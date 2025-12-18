@@ -1,9 +1,27 @@
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+
+// Increase default timeout for waitFor, findBy, etc. to 5s
+configure({ asyncUtilTimeout: 5000 });
 
 // Mocks for window properties that might be missing in JSDOM
-Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: jest.fn().mockImplementation(query => ({
+import React from 'react';
+
+// Mock framer-motion to avoid animation issues in tests
+jest.mock('framer-motion', () => ({
+    ...jest.requireActual('framer-motion'),
+    motion: {
+        div: 'div',
+        button: 'button',
+        span: 'span',
+        header: 'header',
+        section: 'section',
+    },
+    AnimatePresence: (props: any) => props.children,
+}));
+
+window.matchMedia = window.matchMedia || function (query) {
+    return {
         matches: false,
         media: query,
         onchange: null,
@@ -12,8 +30,8 @@ Object.defineProperty(window, 'matchMedia', {
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
         dispatchEvent: jest.fn(),
-    })),
-});
+    };
+};
 
 // Mock for IntersectionObserver
 class IntersectionObserverMock {

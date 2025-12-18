@@ -41,7 +41,8 @@ export const useScans = () => {
       setScans(prev => [newScan, ...prev]);
       return newScan;
     } catch (err: any) {
-      throw new Error(err.message || 'Failed to initiate scan');
+      const message = err.response?.data?.message || err.message || 'Failed to initiate scan';
+      throw new Error(message);
     }
   };
 

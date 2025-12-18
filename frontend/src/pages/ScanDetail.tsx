@@ -27,7 +27,11 @@ export const ScanDetail: React.FC = () => {
         setScan(data);
         setError(null);
       } catch (err: any) {
-        setError(err.message || 'Failed to load scan');
+        if (err.response?.status === 404) {
+          setError('Scan not found');
+        } else {
+          setError(err.response?.data?.message || err.message || 'Failed to load scan');
+        }
       } finally {
         setLoading(false);
       }

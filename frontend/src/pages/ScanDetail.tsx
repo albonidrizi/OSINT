@@ -13,42 +13,41 @@ export const ScanDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    const fetchScan = async () => {
-      if (!id) {
-        setError('Invalid scan ID');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        if (!scan) setLoading(true); // Only show loading on first fetch
-        const data = await scanApi.getScanById(parseInt(id));
-        setScan(data);
-        setError(null);
-      } catch (err: any) {
-        if (err.response?.status === 404) {
-          setError('Scan not found');
-        } else {
-          setError(err.response?.data?.message || err.message || 'Failed to load scan');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScan();
-
-    // Only poll if scan is still running
-    let interval: NodeJS.Timeout | null = null;
-    if (!scan || scan.status === 'RUNNING') {
-      interval = setInterval(fetchScan, 5000);
+  const fetchScan = async () => {
+    if (!id) {
+      setError('Invalid scan ID');
+      setLoading(false);
+      return;
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [id, scan?.status]);
+    try {
+      if (!scan) setLoading(true);
+      const data = await scanApi.getScanById(parseInt(id));
+      setScan(data);
+      setError(null);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setError('Scan not found');
+      } else {
+        setError(err.response?.data?.message || err.message || 'Failed to load scan');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchScan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (scan?.status === 'RUNNING') {
+      const interval = setInterval(fetchScan, 5000);
+      return () => clearInterval(interval);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scan?.status]);
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString) return 'N/A';

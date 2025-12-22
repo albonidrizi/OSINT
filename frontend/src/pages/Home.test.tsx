@@ -145,6 +145,10 @@ describe('Home', () => {
         const { toast } = require('react-toastify');
         renderWithRouter(<Home />);
 
+        // Click New Scan button to show the form
+        const newScanButton = screen.getByText(/New Scan/i);
+        fireEvent.click(newScanButton);
+
         // Fill domain input
         const domainInput = await screen.findByPlaceholderText(/example.com/i);
         fireEvent.change(domainInput, { target: { value: 'api-test.com' } });

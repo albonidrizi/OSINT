@@ -9,9 +9,8 @@ import { ScanResponse, scanApi } from '../services/api';
 import './Home.css';
 
 export const Home: React.FC = () => {
-  const { scans, loading, initiateScan, refreshScans } = useScans();
+  const { scans, loading, refreshScans } = useScans();
   const [selectedScan, setSelectedScan] = useState<ScanResponse | null>(null);
-  const [showModal, setShowModal] = useState(false);
 
   const handleScanInitiated = () => {
     toast.success('Scan initiated successfully!', {
@@ -35,11 +34,9 @@ export const Home: React.FC = () => {
 
   const handleViewResults = (scan: ScanResponse) => {
     setSelectedScan(scan);
-    setShowModal(true);
   };
 
   const handleCloseModal = () => {
-    setShowModal(false);
     setSelectedScan(null);
   };
 
